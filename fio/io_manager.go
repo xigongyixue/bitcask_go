@@ -1,6 +1,6 @@
 package fio
 
-const DataFilePerm = 0744
+const DataFilePerm = 0644
 
 type IOManager interface {
 	// ReadAt reads from the file at the given offset.
@@ -14,4 +14,12 @@ type IOManager interface {
 
 	// Close closes the file.
 	Close() error
+
+	// Size returns the size of the file.
+	Size() (int64, error)
+}
+
+// 初始化IOManager
+func NewIOManager(fileName string) (IOManager, error) {
+	return NewFileIOManager(fileName)
 }

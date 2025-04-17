@@ -95,6 +95,7 @@ func (db *DB) Put(key []byte, value []byte) error {
 	return nil
 }
 
+// 获得数据
 func (db *DB) Get(key []byte) ([]byte, error) {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
@@ -132,6 +133,38 @@ func (db *DB) Get(key []byte) ([]byte, error) {
 	}
 
 	return logRecord.Value, nil
+}
+
+// 删除数据
+func (db *DB) Delete(key []byte) error {
+
+	if len(key) == 0 {
+		return ErrKeyIsEmpty
+	}
+
+	// 从内存索引中查找, 不存在
+	if pos := db.index.Get(key); pos == nil {
+		return nil
+	}
+
+	// 构造logrecord，标记为删除
+	logRecord := &data.LogRecord{
+		Key:  key,
+		Type: data.LogRecordDeleted,
+	}
+
+	// 追加写入活跃文件
+	_, err := db.appendLogRecord(logRecord)
+	if err != nil {
+		return err
+	}
+
+	// 更新内存索引为删除
+	if ok := db.index.Delete(key); !ok {
+		return ErrIndexUpdataFailed
+	}
+
+	return nil
 }
 
 // 追加写到活跃文件中
@@ -270,10 +303,15 @@ func (db *DB) loadIndexFromDataFiles() error {
 
 			// 构建内存索引并保存
 			logRecordPos := &data.LogRecordPos{Fid: fileId, Offset: offset}
+			var ok bool
 			if logRecord.Type == data.LogRecordDeleted {
-				db.index.Delete(logRecord.Key)
+				ok = db.index.Delete(logRecord.Key)
 			} else {
-				db.index.Put(logRecord.Key, logRecordPos)
+				ok = db.index.Put(logRecord.Key, logRecordPos)
+			}
+
+			if !ok {
+				return ErrIndexUpdataFailed
 			}
 
 			offset += size
@@ -288,3 +326,5 @@ func (db *DB) loadIndexFromDataFiles() error {
 	return nil
 
 }
+
+// 08：36：20
