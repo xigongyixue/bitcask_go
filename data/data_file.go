@@ -123,7 +123,3 @@ func (df *DataFile) ReadNBytes(n int64, offset int64) ([]byte, error) {
 	_, err := df.IoManager.Read(b, offset)
 	return b, err
 }
-
-func getLogRecordCRC(lr *LogRecord, header []byte) uint32 {
-	return 0
-}

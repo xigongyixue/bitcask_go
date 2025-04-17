@@ -231,6 +231,10 @@ func (db *DB) setActiveDataFile() error {
 	return nil
 }
 
+func (db *DB) Close() error {
+	return nil
+}
+
 // 从磁盘中加载数据文件
 func (db *DB) loadDataFiles() error {
 	dirEmtries, err := os.ReadDir(db.options.DirPath)
@@ -326,5 +330,3 @@ func (db *DB) loadIndexFromDataFiles() error {
 	return nil
 
 }
-
-// 08：36：20
