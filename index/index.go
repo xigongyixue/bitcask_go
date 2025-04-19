@@ -16,6 +16,12 @@ type Indexer interface {
 
 	// Delete removes a key-value pair from the index.
 	Delete(key []byte) bool
+
+	// Size returns the number of key-value pairs in the index.
+	Size() int
+
+	// Iterator returns an iterator over the index.
+	Iterator(reverse bool) Iterator
 }
 type IndexType = int8
 
@@ -44,4 +50,15 @@ type Item struct {
 
 func (ai *Item) Less(bi btree.Item) bool {
 	return bytes.Compare(ai.key, bi.(*Item).key) == -1
+}
+
+// 通用索引迭代器
+type Iterator interface {
+	Rewind()                   // 回到起始位置
+	Seek(key []byte)           // 从这个key开始遍历
+	Next()                     // 跳转到下一个key
+	Valid() bool               // 是否完成遍历
+	Key() []byte               // 当前key
+	Value() *data.LogRecordPos // 当前value
+	Close()                    // 关闭迭代器
 }

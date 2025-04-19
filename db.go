@@ -56,6 +56,38 @@ func Open(options Options) (*DB, error) {
 	return db, nil
 }
 
+// 关闭数据库
+func (db *DB) Close() error {
+	if db.activeFile == nil {
+		return nil
+	}
+
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	if err := db.activeFile.Close(); err != nil {
+		return err
+	}
+
+	for _, dataFile := range db.olderFiles {
+		if err := dataFile.Close(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// 持久化活跃文件
+func (db *DB) Sync() error {
+	if db.activeFile == nil {
+		return nil
+	}
+
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	return db.activeFile.Sync()
+}
+
 // 检查配置
 func checkOptions(options Options) error {
 	if len(options.DirPath) == 0 {
@@ -95,19 +127,40 @@ func (db *DB) Put(key []byte, value []byte) error {
 	return nil
 }
 
-// 获得数据
-func (db *DB) Get(key []byte) ([]byte, error) {
+// 获得所有key
+func (db *DB) ListKeys() [][]byte {
+	iterator := db.index.Iterator(false)
+	keys := make([][]byte, db.index.Size())
+	var idx int
+	for iterator.Rewind(); iterator.Valid(); iterator.Next() {
+		keys[idx] = iterator.Key()
+		idx++
+	}
+	return keys
+}
+
+// 获得所有数据，并执行指定操作，fn返回false则停止遍历
+func (db *DB) Fold(fn func(key []byte, value []byte) bool) error {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
-	if len(key) == 0 {
-		return nil, ErrKeyIsEmpty
+
+	iterator := db.index.Iterator(false)
+	for iterator.Rewind(); iterator.Valid(); iterator.Next() {
+		value, err := db.getValueByPosition(iterator.Value())
+		if err != nil {
+			continue
+		}
+
+		if !fn(iterator.Key(), value) {
+			break
+		}
 	}
 
-	// 从内存索引中查找
-	logRecordpos := db.index.Get(key)
-	if logRecordpos == nil {
-		return nil, ErrKeyNotFound
-	}
+	return nil
+}
+
+// 根据位置读取数据
+func (db *DB) getValueByPosition(logRecordpos *data.LogRecordPos) ([]byte, error) {
 
 	// 根据文件id找到数据文件
 	var dataFile *data.DataFile
@@ -133,6 +186,22 @@ func (db *DB) Get(key []byte) ([]byte, error) {
 	}
 
 	return logRecord.Value, nil
+}
+
+// 获得数据
+func (db *DB) Get(key []byte) ([]byte, error) {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+	if len(key) == 0 {
+		return nil, ErrKeyIsEmpty
+	}
+
+	// 从内存索引中查找
+	logRecordpos := db.index.Get(key)
+	if logRecordpos == nil {
+		return nil, ErrKeyNotFound
+	}
+	return db.getValueByPosition(logRecordpos)
 }
 
 // 删除数据
@@ -228,10 +297,6 @@ func (db *DB) setActiveDataFile() error {
 	}
 
 	db.activeFile = dataFile
-	return nil
-}
-
-func (db *DB) Close() error {
 	return nil
 }
 
