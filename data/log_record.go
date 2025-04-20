@@ -8,8 +8,9 @@ import (
 type LogRecordType = byte
 
 const (
-	LogRecordNormal  LogRecordType = iota // 写入
-	LogRecordDeleted                      // 删除
+	LogRecordNormal      LogRecordType = iota // 写入
+	LogRecordDeleted                          // 删除
+	LogRecordTxnFinished                      // 结束标记
 )
 
 // crc type keysize valuesize : 4 + 1 + 5 + 5
@@ -34,6 +35,12 @@ type LogRecordHeader struct {
 type LogRecordPos struct {
 	Fid    uint32 // 文件ID
 	Offset int64  // 偏移量
+}
+
+// 暂存的事务数据
+type TransactionRecord struct {
+	Record *LogRecord
+	Pos    *LogRecordPos
 }
 
 // 编码日志记录

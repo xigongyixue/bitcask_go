@@ -8,4 +8,5 @@ var (
 	ErrKeyNotFound            = errors.New("key not found")
 	ErrDataFileNotFound       = errors.New("data file not found")
 	ErrDataDirectoryCorrupted = errors.New("data directory maybe corrupted")
+	ErrExceedMaxBatchNum      = errors.New("exceed max batch number")
 )
