@@ -9,7 +9,11 @@ import (
 	"path/filepath"
 )
 
-const DataFileNameSuffix = ".data"
+const (
+	DataFileNameSuffix    = ".data"
+	HintFileName          = "hint-index"
+	MergeFinishedFileName = "merge-finished"
+)
 
 // 数据文件
 type DataFile struct {
@@ -24,9 +28,27 @@ var (
 
 // OpenDataFile opens a data file with the given file id.
 func OpenDataFile(dirPath string, fileId uint32) (*DataFile, error) {
+	fileName := GetDataFileName(dirPath, fileId)
+	return newDataFile(fileName, fileId)
+}
 
-	fileName := filepath.Join(dirPath, fmt.Sprintf("%09d", fileId)+DataFileNameSuffix)
+// 打开hint索引文件
+func OpenHintFile(dirPath string) (*DataFile, error) {
+	fileName := filepath.Join(dirPath, HintFileName)
+	return newDataFile(fileName, 0)
+}
 
+// 打开合并完成文件
+func OpenMergeFinishedFile(dirPath string) (*DataFile, error) {
+	fileName := filepath.Join(dirPath, MergeFinishedFileName)
+	return newDataFile(fileName, 0)
+}
+
+func GetDataFileName(dirPath string, fileId uint32) string {
+	return filepath.Join(dirPath, fmt.Sprintf("#{fileId}")+DataFileNameSuffix)
+}
+
+func newDataFile(fileName string, fileId uint32) (*DataFile, error) {
 	ioManager, err := fio.NewIOManager(fileName)
 	if err != nil {
 		return nil, err
@@ -37,7 +59,6 @@ func OpenDataFile(dirPath string, fileId uint32) (*DataFile, error) {
 		WriteOff:  0,
 		IoManager: ioManager,
 	}, nil
-
 }
 
 // 根据offset从数据文件读取日志记录
@@ -112,6 +133,16 @@ func (df *DataFile) Write(buf []byte) error {
 
 	df.WriteOff += int64(n)
 	return nil
+}
+
+// 写入hint索引记录
+func (df *DataFile) WriteHintRecord(key []byte, pos *LogRecordPos) error {
+	record := &LogRecord{
+		Key:   key,
+		Value: EncodeLogRecordPos(pos),
+	}
+	encRecord, _ := EncodeLogRecord(record)
+	return df.Write(encRecord)
 }
 
 func (df *DataFile) Close() error {

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -20,6 +21,7 @@ type DB struct {
 	olderFiles map[uint32]*data.DataFile // 旧文件,可以读取
 	index      index.Indexer             // 内存索引
 	seqNo      uint64                    // 事务序列号，全局递增
+	isMerging  bool                      // 是否正在合并
 }
 
 // 打开存储引擎实例
@@ -44,12 +46,22 @@ func Open(options Options) (*DB, error) {
 		index:      index.NewIndexer(options.IndexType),
 	}
 
-	//加载数据文件
+	// 加载merge数据目录
+	if err := db.loadMergeFiles(); err != nil {
+		return nil, err
+	}
+
+	// 加载数据文件
 	if err := db.loadDataFiles(); err != nil {
 		return nil, err
 	}
 
-	// 加载索引文件
+	// 从hint文件中加载索引
+	if err := db.loadIndexFromHintFile(); err != nil {
+		return nil, err
+	}
+
+	// 从数据文件中加载索引
 	if err := db.loadIndexFromDataFiles(); err != nil {
 		return nil, err
 	}
@@ -354,6 +366,18 @@ func (db *DB) loadIndexFromDataFiles() error {
 		return nil
 	}
 
+	// 查看是否发生过merge
+	hasMerge, nonMergeFileId := false, uint32(0)
+	mergeFinFileName := filepath.Join(db.options.DirPath, data.MergeFinishedFileName)
+	if _, err := os.Stat(mergeFinFileName); !os.IsNotExist(err) {
+		fid, err := db.getNonMergeFileId(db.options.DirPath)
+		if err != nil {
+			return err
+		}
+		hasMerge = true
+		nonMergeFileId = fid
+	}
+
 	updateIndex := func(key []byte, typ data.LogRecordType, pos *data.LogRecordPos) {
 		var ok bool
 		if typ == data.LogRecordDeleted {
@@ -374,6 +398,12 @@ func (db *DB) loadIndexFromDataFiles() error {
 	// 遍历数据文件，加载索引
 	for i, fileId := range db.fileIds {
 		var fileId = uint32(fileId)
+
+		// 已经从hint文件加载过索引，则跳过
+		if hasMerge && fileId < nonMergeFileId {
+			continue
+		}
+
 		var dataFile *data.DataFile
 
 		if fileId == db.activeFile.FileId {
