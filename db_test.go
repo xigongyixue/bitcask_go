@@ -4,6 +4,7 @@ import (
 	"bitcask-go/utils"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -299,27 +300,27 @@ func TestDB_Sync(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-// func TestDB_FileLock(t *testing.T) {
-// 	opts := DefaultOptions
-// 	dir, _ := os.MkdirTemp("", "bitcask-go-filelock")
-// 	opts.DirPath = dir
-// 	db, err := Open(opts)
-// 	defer destroyDB(db)
-// 	assert.Nil(t, err)
-// 	assert.NotNil(t, db)
+func TestDB_FileLock(t *testing.T) {
+	opts := DefaultOptions
+	dir, _ := os.MkdirTemp("", "bitcask-go-filelock")
+	opts.DirPath = dir
+	db, err := Open(opts)
+	defer destroyDB(db)
+	assert.Nil(t, err)
+	assert.NotNil(t, db)
 
-// 	_, err = Open(opts)
-// 	assert.Equal(t, ErrDatabaseIsUsing, err)
+	_, err = Open(opts)
+	assert.Equal(t, ErrDatabaseIsUsing, err)
 
-// 	err = db.Close()
-// 	assert.Nil(t, err)
+	err = db.Close()
+	assert.Nil(t, err)
 
-// 	db2, err := Open(opts)
-// 	assert.Nil(t, err)
-// 	assert.NotNil(t, db2)
-// 	err = db2.Close()
-// 	assert.Nil(t, err)
-// }
+	db2, err := Open(opts)
+	assert.Nil(t, err)
+	assert.NotNil(t, db2)
+	err = db2.Close()
+	assert.Nil(t, err)
+}
 
 // func TestDB_Stat(t *testing.T) {
 // 	opts := DefaultOptions
@@ -373,15 +374,15 @@ func TestDB_Sync(t *testing.T) {
 // 	assert.NotNil(t, db2)
 // }
 
-//func TestDB_OpenMMap(t *testing.T) {
-//	opts := DefaultOptions
-//	opts.DirPath = "/tmp/bitcask-go"
-//	opts.MMapAtStartup = false
-//
-//	now := time.Now()
-//	db, err := Open(opts)
-//	t.Log("open time ", time.Since(now))
-//
-//	assert.Nil(t, err)
-//	assert.NotNil(t, db)
-//}
+func TestDB_OpenMMap(t *testing.T) {
+	opts := DefaultOptions
+	opts.DirPath = "C:\\Users\\lenovo\\AppData\\Local\\Temp\\bitcask-go3458593534"
+	opts.MMapAtStartup = false
+	now := time.Now()
+	db, err := Open(opts)
+
+	t.Log("open time ", time.Since(now)) // 470.457ms - 10.4596797s
+
+	assert.Nil(t, err)
+	assert.NotNil(t, db)
+}

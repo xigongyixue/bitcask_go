@@ -2,6 +2,13 @@ package fio
 
 const DataFilePerm = 0644
 
+type FileIOType int
+
+const (
+	StandardFIO FileIOType = iota
+	MemoryMap
+)
+
 type IOManager interface {
 	// ReadAt reads from the file at the given offset.
 	Read([]byte, int64) (int, error)
@@ -20,6 +27,13 @@ type IOManager interface {
 }
 
 // 初始化IOManager
-func NewIOManager(fileName string) (IOManager, error) {
-	return NewFileIOManager(fileName)
+func NewIOManager(fileName string, ioType FileIOType) (IOManager, error) {
+	switch ioType {
+	case StandardFIO:
+		return NewFileIOManager(fileName)
+	case MemoryMap:
+		return NewMMapIOManager(fileName)
+	default:
+		panic("unknown file io type")
+	}
 }

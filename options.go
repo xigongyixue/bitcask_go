@@ -3,10 +3,12 @@ package bitcask_go
 import "os"
 
 type Options struct {
-	DirPath      string      // 数据库数据目录
-	DataFileSize int64       // 数据文件大小
-	SyncWrites   bool        // 是否持久化
-	IndexType    IndexerType // 索引类型
+	DirPath       string      // 数据库数据目录
+	DataFileSize  int64       // 数据文件大小
+	SyncWrites    bool        // 是否持久化
+	BytesPerSync  uint        // 每次同步的字节数
+	IndexType     IndexerType // 索引类型
+	MMapAtStartup bool        // 是否在启动时内存映射数据文件
 }
 
 type IteratorOptions struct {
@@ -28,10 +30,12 @@ const (
 )
 
 var DefaultOptions = Options{
-	DirPath:      os.TempDir(),
-	DataFileSize: 256 * 1024 * 1024, // 1GB
-	SyncWrites:   false,
-	IndexType:    BPlusTree,
+	DirPath:       os.TempDir(),
+	DataFileSize:  64 * 1024 * 1024, // 64MB
+	SyncWrites:    false,
+	BytesPerSync:  0,
+	IndexType:     BTree,
+	MMapAtStartup: true,
 }
 
 var DefaultIteratorOptions = IteratorOptions{
