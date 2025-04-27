@@ -236,6 +236,12 @@ func (db *DB) Stat() *Stat {
 	}
 }
 
+func (db *DB) Backup(dir string) error {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+	return utils.CopyDir(db.options.DirPath, dir, []string{fileLockName})
+}
+
 // 写入 kv，不能为空
 func (db *DB) Put(key []byte, value []byte) error {
 	// Check if the key is empty
