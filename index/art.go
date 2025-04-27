@@ -23,30 +23,36 @@ func NewART() *AdaptiveRadixTree {
 }
 
 // Put inserts a key-value pair into the index.
-func (art *AdaptiveRadixTree) Put(key []byte, pos *data.LogRecordPos) bool {
+func (art *AdaptiveRadixTree) Put(key []byte, pos *data.LogRecordPos) *data.LogRecordPos {
 	art.lock.Lock()
-	art.tree.Insert(key, pos)
+	oldValue, _ := art.tree.Insert(key, pos)
 	art.lock.Unlock()
-	return true
+	if oldValue == nil {
+		return nil
+	}
+	return oldValue.(*data.LogRecordPos)
 }
 
 // Get retrieves the position of a key from the index.
 func (art *AdaptiveRadixTree) Get(key []byte) *data.LogRecordPos {
 	art.lock.RLock()
 	defer art.lock.RUnlock()
-	value, found := art.tree.Search(key)
+	oldValue, found := art.tree.Search(key)
 	if !found {
 		return nil
 	}
-	return value.(*data.LogRecordPos) // 转换类型
+	return oldValue.(*data.LogRecordPos) // 转换类型
 }
 
 // Delete removes a key-value pair from the index.
-func (art *AdaptiveRadixTree) Delete(key []byte) bool {
+func (art *AdaptiveRadixTree) Delete(key []byte) (*data.LogRecordPos, bool) {
 	art.lock.RLock()
-	_, deleted := art.tree.Delete(key)
+	oldValue, deleted := art.tree.Delete(key)
 	art.lock.RUnlock()
-	return deleted
+	if oldValue == nil {
+		return nil, false
+	}
+	return oldValue.(*data.LogRecordPos), deleted
 }
 
 // Size returns the number of key-value pairs in the index.

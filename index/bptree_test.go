@@ -18,9 +18,12 @@ func TestNewBPlusTree_Put(t *testing.T) {
 
 	tree := NewBPlusTree(path, false)
 
-	tree.Put([]byte("key1"), &data.LogRecordPos{Fid: 1, Offset: 100})
-	tree.Put([]byte("key2"), &data.LogRecordPos{Fid: 2, Offset: 200})
-	tree.Put([]byte("key3"), &data.LogRecordPos{Fid: 3, Offset: 300})
+	res1 := tree.Put([]byte("key1"), &data.LogRecordPos{Fid: 1, Offset: 100})
+	t.Log(res1)
+	res2 := tree.Put([]byte("key1"), &data.LogRecordPos{Fid: 2, Offset: 200})
+	t.Log(res2)
+	res3 := tree.Put([]byte("key1"), &data.LogRecordPos{Fid: 3, Offset: 300})
+	t.Log(res3)
 }
 
 func TestNewBPlusTree_Get(t *testing.T) {
@@ -51,8 +54,7 @@ func TestNewBPlusTree_Delete(t *testing.T) {
 	tree.Put([]byte("key1"), &data.LogRecordPos{Fid: 1, Offset: 100})
 	pos := tree.Get([]byte("key1"))
 	t.Log(pos)
-	tree.Delete([]byte("key1"))
-	pos = tree.Get([]byte("key1"))
+	pos, _ = tree.Delete([]byte("key1"))
 	t.Log(pos)
 
 }
