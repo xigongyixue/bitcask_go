@@ -102,7 +102,7 @@ func (rds *RedisDataStructure) HSet(key, field, value []byte) (bool, error) {
 	// 构造数据部分的key
 	hk := &hashInternalKey{
 		key:     key,
-		version: meta.verison,
+		version: meta.version,
 		field:   field,
 	}
 
@@ -140,7 +140,7 @@ func (rds *RedisDataStructure) HGet(key, field []byte) ([]byte, error) {
 
 	hk := &hashInternalKey{
 		key:     key,
-		version: meta.verison,
+		version: meta.version,
 		field:   field,
 	}
 
@@ -160,7 +160,7 @@ func (rds *RedisDataStructure) HDel(key, field []byte) (bool, error) {
 
 	hk := &hashInternalKey{
 		key:     key,
-		version: meta.verison,
+		version: meta.version,
 		field:   field,
 	}
 
@@ -181,6 +181,102 @@ func (rds *RedisDataStructure) HDel(key, field []byte) (bool, error) {
 	}
 
 	return exist, nil
+}
+
+// -----------------------------------------------
+
+// ---------------------List----------------------
+// 存储一个列表
+// 1. key(原始输入) -> metadata
+// 2. listInternalKey(key+version+index) -> value
+
+func (rds *RedisDataStructure) pushInner(key []byte, element []byte, isLeft bool) (uint32, error) {
+	meta, err := rds.findMetadata(key, List)
+	if err != nil {
+		return 0, err
+	}
+
+	lk := &listInternalKey{
+		key:     key,
+		version: meta.version,
+	}
+
+	if isLeft {
+		lk.index = meta.head - 1
+	} else {
+		lk.index = meta.tail
+	}
+	wb := rds.db.NewWriteBatch(bitcask.DefaultWriteBatchOptions)
+	meta.size++
+	if isLeft {
+		meta.head--
+	} else {
+		meta.tail++
+	}
+	wb.Put(key, meta.encode())
+	wb.Put(lk.encode(), element)
+	if err = wb.Commit(); err != nil {
+		return 0, err
+	}
+
+	return meta.size, nil
+
+}
+
+func (rds *RedisDataStructure) LPush(key []byte, element []byte) (uint32, error) {
+	return rds.pushInner(key, element, true)
+}
+
+func (rds *RedisDataStructure) RPush(key []byte, element []byte) (uint32, error) {
+	return rds.pushInner(key, element, false)
+}
+
+func (rds *RedisDataStructure) popInner(key []byte, isLeft bool) ([]byte, error) {
+	meta, err := rds.findMetadata(key, List)
+	if err != nil {
+		return nil, err
+	}
+
+	if meta.size == 0 {
+		return nil, nil
+	}
+
+	lk := &listInternalKey{
+		key:     key,
+		version: meta.version,
+	}
+
+	if isLeft {
+		lk.index = meta.head
+	} else {
+		lk.index = meta.tail - 1
+	}
+
+	element, err := rds.db.Get(lk.encode())
+	if err != nil {
+		return nil, err
+	}
+
+	meta.size--
+	if isLeft {
+		meta.head++
+	} else {
+		meta.tail--
+	}
+
+	if err = rds.db.Put(key, meta.encode()); err != nil {
+		return nil, err
+	}
+
+	return element, nil
+}
+
+func (rds *RedisDataStructure) LPop(key []byte) ([]byte, error) {
+	return rds.popInner(key, true)
+}
+
+func (rds *RedisDataStructure) RPop(key []byte) ([]byte, error) {
+	return rds.popInner(key, false)
 }
 
 func (rds *RedisDataStructure) findMetadata(key []byte, dataType redisDataType) (*metadata, error) {
@@ -209,7 +305,7 @@ func (rds *RedisDataStructure) findMetadata(key []byte, dataType redisDataType) 
 		meta = &metadata{
 			dataType: dataType,
 			expire:   0,
-			verison:  time.Now().UnixNano(),
+			version:  time.Now().UnixNano(),
 			size:     0,
 		}
 		if dataType == List {

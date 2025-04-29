@@ -15,7 +15,7 @@ const (
 type metadata struct {
 	dataType byte   // 数据类型
 	expire   int64  // 过期时间
-	verison  int64  // 版本号
+	version  int64  // 版本号
 	size     uint32 // 数据大小
 	head     uint64 // List头部指针
 	tail     uint64 // List尾部指针
@@ -31,7 +31,7 @@ func (md *metadata) encode() []byte {
 	buf[0] = md.dataType
 	var index = 1
 	index += binary.PutVarint(buf[index:], md.expire)
-	index += binary.PutVarint(buf[index:], md.verison)
+	index += binary.PutVarint(buf[index:], md.version)
 	index += binary.PutVarint(buf[index:], int64(md.size))
 
 	if md.dataType == List {
@@ -42,30 +42,29 @@ func (md *metadata) encode() []byte {
 	return buf[:index]
 }
 
-func decodeMetadata(data []byte) *metadata {
-	dataType := data[0]
+func decodeMetadata(buf []byte) *metadata {
+	dataType := buf[0]
 
 	var index = 1
-	expire, n := binary.Varint(data[index:])
+	expire, n := binary.Varint(buf[index:])
 	index += n
-	verison, n := binary.Varint(data[index:])
+	version, n := binary.Varint(buf[index:])
 	index += n
-	size, n := binary.Varint(data[index:])
+	size, n := binary.Varint(buf[index:])
 	index += n
 
 	var head uint64 = 0
 	var tail uint64 = 0
 	if dataType == List {
-		head, n = binary.Uvarint(data[index:])
+		head, n = binary.Uvarint(buf[index:])
 		index += n
-		tail, n = binary.Uvarint(data[index:])
-		index += n
+		tail, _ = binary.Uvarint(buf[index:])
 	}
 
 	return &metadata{
 		dataType: dataType,
 		expire:   expire,
-		verison:  verison,
+		version:  version,
 		size:     uint32(size),
 		head:     head,
 		tail:     tail,
@@ -87,6 +86,25 @@ func (hk *hashInternalKey) encode() []byte {
 	binary.LittleEndian.PutUint64(buf[index:index+8], uint64(hk.version))
 	index += 8
 	copy(buf[index:], hk.field)
+
+	return buf
+}
+
+type listInternalKey struct {
+	key     []byte
+	version int64
+	index   uint64
+}
+
+func (lk *listInternalKey) encode() []byte {
+	buf := make([]byte, len(lk.key)+8+8)
+
+	var index = 0
+	copy(buf[index:index+len(lk.key)], lk.key)
+	index += len(lk.key)
+	binary.LittleEndian.PutUint64(buf[index:index+8], uint64(lk.version))
+	index += 8
+	binary.LittleEndian.PutUint64(buf[index:], lk.index)
 
 	return buf
 }
